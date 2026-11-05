@@ -23,15 +23,24 @@ umi.use(signerIdentity(signer));
 
 (async () => {
   try {
-    //change the image uri to your image uri obtained from nft_image.ts
     const image =
+      process.env.NFT_IMAGE_URI ??
       "https://gateway.irys.xyz/5EDyiNrMWfhjdsEwXLrwkHPwZoZB2m1A2Kudrfxo1tpr";
 
-    //json scheme : https://www.metaplex.com/docs/smart-contracts/core/json-schema
-    //change the metadata
-    // const metadata =
-    // const myUri =
-    // console.log(`metadata uri: ${myUri} `);
+    const metadata = {
+      name: "Turbine Core NFT",
+      symbol: "TURBINE",
+      description: "A sample NFT minted with MPL Core on Solana devnet.",
+      image,
+      attributes: [{ trait_type: "Collection", value: "Turbine" }],
+      properties: {
+        files: [{ uri: image, type: "image/png" }],
+        category: "image",
+      },
+    };
+
+    const myUri = await umi.uploader.uploadJson(metadata);
+    console.log(`metadata uri: ${myUri}`);
   } catch (error) {
     console.log("error", error);
   }

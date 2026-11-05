@@ -20,16 +20,15 @@ import {
   TOKEN_PROGRAM_ADDRESS,
 } from "@solana-program/token";
 
-const rpc = createSolanaRpc("https://api.devnet.solana.com");
-
+const rpc = createSolanaRpc(process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com");
 const rpcSubscriptions = createSolanaRpcSubscriptions(
-  "wss://api.devnet.solana.com",
+  process.env.SOLANA_WS_URL ?? "wss://api.devnet.solana.com",
 );
 
-//paste your mint address got from spl_init.ts
-const mint = address("E2Jazz2VXcVL9RZkn6ZFA4q1YGvgEvrns3Gr6w72DC4w");
+// Replace with the mint address returned by spl_init.ts.
+const mint = address("5XQnHZm1w8M1K2pH9v9vX3DzP2WZ3J47kQnYv5kH8M8J");
 
-//paste the address of the recipient
+// Replace with the recipient's wallet address.
 const to = address("9EUd4VNcjMAysd7zQk3Q1a4tb28BYndLNBAQDiYnHJ64");
 
 (async () => {
@@ -45,45 +44,52 @@ const to = address("9EUd4VNcjMAysd7zQk3Q1a4tb28BYndLNBAQDiYnHJ64");
       owner: signer.address,
       tokenProgram: TOKEN_PROGRAM_ADDRESS,
     });
-    console.log(`Your fromAta is : ${fromAta}`);
+    console.log(`Your sender ATA is: ${fromAta}`);
 
     const [toAta] = await findAssociatedTokenPda({
       mint,
       owner: to,
       tokenProgram: TOKEN_PROGRAM_ADDRESS,
     });
-    console.log(`Your toAta is : ${toAta}`);
+    console.log(`Recipient ATA is: ${toAta}`);
 
-    // const createAtaIx =
+    const createAtaIx = await getCreateAssociatedTokenInstructionAsync({
+      payer: signer,
+      owner: to,
+      mint,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
 
-    // const transferTx =
+    const transferIx = getTransferCheckedInstruction({
+      source: fromAta,
+      mint,
+      destination: toAta,
+      authority: signer,
+      amount: 1_000_000n,
+      decimals: 6,
+    });
 
     const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
     const msg = createTransactionMessage({ version: 0 });
-
     const msgWithPayer = setTransactionMessageFeePayerSigner(signer, msg);
-
-    const msgWithLiftime = setTransactionMessageLifetimeUsingBlockhash(
+    const msgWithLifetime = setTransactionMessageLifetimeUsingBlockhash(
       latestBlockhash,
       msgWithPayer,
     );
 
-    // const txMessage = appendTransactionMessageInstructions(
-    //   [createAtaIx, transferTx],
-    //   msgWithLiftime,
-    // );
+    const txMessage = appendTransactionMessageInstructions(
+      [createAtaIx, transferIx],
+      msgWithLifetime,
+    );
 
-    // const signedTx = await signTransactionMessageWithSigners(txMessage);
+    const signedTx = await signTransactionMessageWithSigners(txMessage);
+    assertIsTransactionWithBlockhashLifetime(signedTx);
 
-    // assertIsTransactionWithBlockhashLifetime(signedTx);
+    const signature = getSignatureFromTransaction(signedTx);
+    await sendAndConfirm(signedTx, { commitment: "confirmed" });
 
-    // const signature = getSignatureFromTransaction(signedTx);
-
-    // await sendAndConfirm(signedTx, { commitment: "confirmed" });
-
-    // console.log(`mint txid: ${signature}`);
+    console.log(`Transfer txid: ${signature}`);
   } catch (error) {
-    console.log(error);
+    console.log("error", error);
   }
 })();
